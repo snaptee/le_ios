@@ -14,22 +14,18 @@
 #import "lelib.h"
 
 
-extern LEBackgroundThread* backgroundThread;
-
-extern dispatch_queue_t le_write_queue;
-extern char* le_token;
-
 @implementation LELog
 
-- (id)init
+- (id)initWithToken:(char*)token
 {
     self = [super init];
-    if (le_init()) return nil;
+    _ctx.token = token;
+    if (le_init(&_ctx)) return nil;
     
     NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
     [center addObserver:self selector:@selector(notificationReceived:) name:UIApplicationWillEnterForegroundNotification object:nil];
 
-    le_poke();
+    le_poke(&_ctx);
 
     return self;
 }
@@ -57,32 +53,35 @@ extern char* le_token;
 
     LE_DEBUG(@"%@", text);
     
-    le_write_string(text);
-    le_poke();
+    le_write_string(&_ctx, text);
+    le_poke(&_ctx);
 }
 
 + (void)log:(NSObject *)object{
     
     [[self sharedInstance] log:object];
 }
+
+static LELog* sharedInstance;
+
++ (void)initializeSharedInstance:(char*)token
+{
+  sharedInstance = [[LELog alloc] initWithToken:token];
+}
+
 + (LELog*)sharedInstance
 {
-    static dispatch_once_t once;
-    static LELog* sharedInstance;
-    dispatch_once(&once, ^{
-        sharedInstance = [LELog new];
-    });
     return sharedInstance;
 }
+
 +(LELog*)sessionWithToken:(NSString*)token{
-    
     LELog * leLog = [self sharedInstance];
     [leLog setToken:token];
     return leLog;
 }
 - (void)setToken:(NSString *)token
 {
-    le_set_token([token cStringUsingEncoding:NSUTF8StringEncoding]);
+    le_set_token(&_ctx, [token cStringUsingEncoding:NSUTF8StringEncoding]);
 }
 
 - (void)setDebugLogs:(BOOL)debugLogs
@@ -93,12 +92,12 @@ extern char* le_token;
 - (NSString*)token
 {
     __block NSString* r = nil;
-    dispatch_sync(le_write_queue, ^{
+    dispatch_sync(_ctx.le_write_queue, ^{
         
-        if (!le_token || le_token[0]) {
+        if (!self.ctx.token || self.ctx.token[0]) {
             r = nil;
         } else {
-            r = [NSString stringWithUTF8String:le_token];
+            r = [NSString stringWithUTF8String:self.ctx.token];
         }
     });
     
@@ -113,7 +112,7 @@ extern char* le_token;
             [self log:notification.name];
         }
         
-        le_poke();
+        le_poke(&_ctx);
         
         return;
     }

@@ -13,19 +13,10 @@
 
 #include "lelib.h"
 
-LEBackgroundThread* backgroundThread;
+struct le_context *exception_handler_context;
+NSUncaughtExceptionHandler * saved_le_exception_handler;
 
-dispatch_queue_t le_write_queue;
-char* le_token;
-bool le_debug_logs = false;
-
-static int logfile_descriptor;
-static off_t logfile_size;
-static int file_order_number;
-
-static char buffer[MAXIMUM_LOGENTRY_SIZE];
-
-static void (*saved_le_exception_handler)(NSException *exception);
+static bool le_debug_logs = false;
 
 void LE_DEBUG(NSString *format, ...) {
 #if DEBUG
@@ -39,23 +30,23 @@ void LE_DEBUG(NSString *format, ...) {
 }
 
 /*
- Sets logfile_descriptor to -1 when fails, this means that all subsequent write attempts will fail
+ Sets ctx.logfile_descriptor to -1 when fails, this means that all subsequent write attempts will fail
  return 0 on success
  */
-static int open_file(const char* path)
+static int open_file(struct le_context *ctx, const char* path)
 {
     mode_t mode = 0664;
     
-    logfile_size = 0;
+    ctx->logfile_size = 0;
     
-    logfile_descriptor = open(path, O_CREAT | O_WRONLY, mode);
-    if (logfile_descriptor < 0) {
+    ctx->logfile_descriptor = open(path, O_CREAT | O_WRONLY, mode);
+    if (ctx->logfile_descriptor < 0) {
         LE_DEBUG(@"Unable to open log file.");
         return 1;
     }
     
-    logfile_size = lseek(logfile_descriptor, 0, SEEK_END);
-    if (logfile_size < 0) {
+    ctx->logfile_size = lseek(ctx->logfile_descriptor, 0, SEEK_END);
+    if (ctx->logfile_size < 0) {
         LE_DEBUG(@"Unable to seek at end of file.");
         return 1;
     }
@@ -64,22 +55,23 @@ static int open_file(const char* path)
     return 0;
 }
 
-void le_poke(void)
+void le_poke(struct le_context *ctx)
 {
-    if (!backgroundThread) {
-        backgroundThread = [LEBackgroundThread new];
-        backgroundThread.name = @"Logentries";
+    if (!ctx->backgroundThread) {
+        ctx->backgroundThread = [LEBackgroundThread new];
+        ctx->backgroundThread.token = [NSString stringWithUTF8String:ctx->token];
+        ctx->backgroundThread.name = @"Logentries";
                 
         NSCondition* initialized = [NSCondition new];
-        backgroundThread.initialized = initialized;
+        ctx->backgroundThread.initialized = initialized;
         
         [initialized lock];
-        [backgroundThread start];
+        [ctx->backgroundThread start];
         [initialized wait];
         [initialized unlock];
     }
     
-    [backgroundThread performSelector:@selector(poke:) onThread:backgroundThread withObject:@(file_order_number) waitUntilDone:NO modes:@[NSDefaultRunLoopMode]];
+    [ctx->backgroundThread performSelector:@selector(poke:) onThread:ctx->backgroundThread withObject:@(ctx->file_order_number) waitUntilDone:NO modes:@[NSDefaultRunLoopMode]];
 }
 
 static void le_exception_handler(NSException *exception)
@@ -87,95 +79,96 @@ static void le_exception_handler(NSException *exception)
     NSString* message = [NSString stringWithFormat:@"Exception name=%@, reason=%@, userInfo=%@ addresses=%@ symbols=%@", [exception name], [exception reason], [exception userInfo], [exception callStackReturnAddresses], [exception callStackSymbols]];
     LE_DEBUG(@"%@", message);
     message = [message stringByReplacingOccurrencesOfString:@"\n" withString:@"\u2028"];
-    le_log([message cStringUsingEncoding:NSUTF8StringEncoding]);
+    le_log(exception_handler_context, [message cStringUsingEncoding:NSUTF8StringEncoding]);
     
     if (saved_le_exception_handler) {
         saved_le_exception_handler(exception);
     }
 }
 
-int le_init(void)
+int le_init(struct le_context *ctx)
 {
-    static dispatch_once_t once;
-    
     __block int r = 0;
-    
-    dispatch_once(&once, ^{
 
-        // pesimistic strategy
-        r = 1;
-        
-        le_write_queue = dispatch_queue_create("com.logentries.write", NULL);
-        
-        LogFiles* logFiles = [LogFiles new];
-        if (!logFiles) {
-            LE_DEBUG(@"Error initializing logs directory.");
-            return;
-        }
-        
-        [logFiles consolidate];
-        
-        LogFile* file = [logFiles fileToWrite];
-        file_order_number = (int)file.orderNumber;
-        NSString* logFilePath = [file logPath];
-        
-        const char* path = [logFilePath cStringUsingEncoding:NSASCIIStringEncoding];
-        if (!path) {
-            LE_DEBUG(@"Invalid logfile path.");
-            return;
-        }
-        
-        if (open_file(path)) {
-            return;
-        };
-        
-        r = 0;
-        
-        return;
-    });
-    
+    // pesimistic strategy
+    r = 1;
+
+    ctx->le_write_queue = dispatch_queue_create("com.logentries.write", NULL);
+
+    NSString* token = [NSString stringWithUTF8String:ctx->token];
+    LogFiles* logFiles = [[LogFiles alloc]initWithToken:token];
+    if (!logFiles) {
+        LE_DEBUG(@"Error initializing logs directory.");
+        return r;
+    }
+
+    [logFiles consolidate];
+
+    LogFile* file = [logFiles fileToWrite];
+    ctx->file_order_number = (int)file.orderNumber;
+    NSString* logFilePath = [file logPath];
+
+    const char* path = [logFilePath cStringUsingEncoding:NSASCIIStringEncoding];
+    if (!path) {
+        LE_DEBUG(@"Invalid logfile path.");
+        return r;
+    }
+
+    if (open_file(ctx, path)) {
+        return r;
+    };
+
+    r = 0;
+
+    le_set_token(ctx, ctx->token);
     return r;
 }
 
-void le_handle_crashes(void)
+
+void le_handle_crashes(struct le_context *ctx)
 {
-    saved_le_exception_handler = NSGetUncaughtExceptionHandler();
-    NSSetUncaughtExceptionHandler(&le_exception_handler);
+    exception_handler_context = ctx;
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        saved_le_exception_handler = NSGetUncaughtExceptionHandler();
+        NSSetUncaughtExceptionHandler(&le_exception_handler);
+    });
 }
 
 /*
  Takes used_length characters from buffer, appends a space and token and writes in into log. Handles log rotation.
  */
-static void write_buffer(size_t used_length)
+static void write_buffer(struct le_context *ctx, size_t used_length)
 {
-    if ((size_t)logfile_size + used_length > MAXIMUM_LOGFILE_SIZE) {
+    if ((size_t)ctx->logfile_size + used_length > MAXIMUM_LOGFILE_SIZE) {
         
-        close(logfile_descriptor);
-        file_order_number++;
-        
-        LogFile* logFile = [[LogFile alloc] initWithNumber:file_order_number];
+        close(ctx->logfile_descriptor);
+        ctx->file_order_number++;
+        NSString* directory = [LogFiles logsDirectory: [NSString stringWithCString:ctx->token encoding:NSASCIIStringEncoding]];
+        LogFile* logFile = [[LogFile alloc] initWithNumber:ctx->file_order_number withDirectory:directory];
         NSString* p = [logFile logPath];
         const char* path = [p cStringUsingEncoding:NSASCIIStringEncoding];
         
-        open_file(path);
+        open_file(ctx, path);
     }
     
-    ssize_t written = write(logfile_descriptor, buffer, (size_t)used_length);
+    ssize_t written = write(ctx->logfile_descriptor, ctx->buffer, (size_t)used_length);
     if (written < (ssize_t)used_length) {
         LE_DEBUG(@"Could not write to log, no space left?");
         return;
     }
     
-    logfile_size += written;
+    ctx->logfile_size += written;
 }
 
-void le_log(const char* message)
+void le_log(struct le_context *ctx, const char* message)
 {
-    dispatch_sync(le_write_queue, ^{
+    dispatch_sync(ctx->le_write_queue, ^{
         
         size_t token_length;
         
-        if(!is_valid_token(le_token,&token_length))
+        if(!is_valid_token(ctx->token,&token_length))
             return ;
         
 
@@ -187,25 +180,25 @@ void le_log(const char* message)
             length = max_length;
         }
 
-        memcpy(buffer, le_token, token_length);
-        buffer[token_length] = ' ';
-        memcpy(buffer + token_length + 1, message, length);
+        memcpy(ctx->buffer, ctx->token, token_length);
+        ctx->buffer[token_length] = ' ';
+        memcpy(ctx->buffer + token_length + 1, message, length);
         
         size_t total_length = token_length + 1 + length;
-        buffer[total_length++] = '\n';
+        ctx->buffer[total_length++] = '\n';
         
-        write_buffer(total_length);
-        le_poke();
+        write_buffer(ctx, total_length);
+        le_poke(ctx);
     });
     
 }
 
-void le_write_string(NSString* string)
+void le_write_string(struct le_context *ctx, NSString* string)
 {
-    dispatch_sync(le_write_queue, ^{
+    dispatch_sync(ctx->le_write_queue, ^{
         
         size_t token_length;
-        if(!is_valid_token(le_token,&token_length))
+        if(!is_valid_token(ctx->token,&token_length))
             return ;
         
         NSUInteger maxLength = MAXIMUM_LOGENTRY_SIZE - token_length - 2; // minus token length, space separator and \n
@@ -213,13 +206,13 @@ void le_write_string(NSString* string)
             LE_DEBUG(@"Too large message, it will be truncated");
         }
         
-        memcpy(buffer, le_token, token_length);
-        buffer[token_length] = ' ';
+        memcpy(ctx->buffer, ctx->token, token_length);
+        ctx->buffer[token_length] = ' ';
 
         NSRange range = {.location = 0, .length = [string length]};
         
         NSUInteger usedLength = 0;
-        BOOL r = [string getBytes:(buffer + token_length + 1) maxLength:maxLength usedLength:&usedLength encoding:NSUTF8StringEncoding options:NSStringEncodingConversionAllowLossy range:range remainingRange:NULL];
+        BOOL r = [string getBytes:(ctx->buffer + token_length + 1) maxLength:maxLength usedLength:&usedLength encoding:NSUTF8StringEncoding options:NSStringEncodingConversionAllowLossy range:range remainingRange:NULL];
         
         if (!r) {
             LE_DEBUG(@"Error converting message characters.");
@@ -227,12 +220,12 @@ void le_write_string(NSString* string)
         }
         
         NSUInteger totalLength = token_length + 1 + usedLength;
-        buffer[totalLength++] = '\n';
-        write_buffer((size_t)totalLength);
+        ctx->buffer[totalLength++] = '\n';
+        write_buffer(ctx, (size_t)totalLength);
     });
 }
 
-void le_set_token(const char* token)
+void le_set_token(struct le_context *ctx, const char* token)
 {
     size_t length ;
     if(!is_valid_token(token,&length))
@@ -245,8 +238,8 @@ void le_set_token(const char* token)
     }
     strlcpy(local_buffer, token, length + 1);
     
-    dispatch_sync(le_write_queue, ^{
-        le_token = local_buffer;
+    dispatch_sync(ctx->le_write_queue, ^{
+        ctx->token = local_buffer;
     });
 }
 

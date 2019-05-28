@@ -189,13 +189,13 @@
     // remove skipped files
     while (next + MAXIMUM_FILE_COUNT <= self.lastLogFileNumber) {
         
-        LogFile* logFileToDelete = [[LogFile alloc] initWithNumber:next];
+        LogFile* logFileToDelete = [[LogFile alloc] initWithNumber:next withDirectory:self.currentLogFile.directory];
         LE_DEBUG(@"Removing skipped file %ld", (long)logFileToDelete.orderNumber);
         [logFileToDelete remove];
         next++;
     }
 
-    LogFile* logFile = [[LogFile alloc] initWithNumber:next];
+    LogFile* logFile = [[LogFile alloc] initWithNumber:next withDirectory:self.currentLogFile.directory];
     BOOL opened = [self openLogFile:logFile];
     
     if (!opened) {
@@ -343,7 +343,7 @@
     if (self.inputFile) return YES;
     
     LE_DEBUG(@"Opening input file");
-    LogFiles* logFiles = [LogFiles new];
+    LogFiles* logFiles = [[LogFiles alloc]initWithToken:self.token];
     
     LogFile* logFile = [logFiles fileToRead];
     BOOL opened = [self openLogFile:logFile];

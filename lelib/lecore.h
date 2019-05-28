@@ -19,15 +19,29 @@
 
 extern void LE_DEBUG(NSString *format, ...);
 
+@class LEBackgroundThread;
+
 /* Pure C API */
 
-int le_init(void);
-void le_handle_crashes(void);
-void le_poke(void);
-void le_log(const char* message);
-void le_write_string(NSString* string);
-void le_set_token(const char* token);
+struct le_context {
+    LEBackgroundThread* backgroundThread;
+    dispatch_queue_t le_write_queue;
+    char* token;
+    int logfile_descriptor;
+    off_t logfile_size;
+    int file_order_number;
+    char buffer[MAXIMUM_LOGENTRY_SIZE];
+    void (*saved_le_exception_handler)(NSException *exception);
+};
+
+int le_init(struct le_context *ctx);
+void le_handle_crashes(struct le_context *ctx);
+void le_poke(struct le_context *ctx);
+void le_log(struct le_context *ctx, const char* message);
+void le_write_string(struct le_context *ctx, NSString* string);
+void le_set_token(struct le_context *ctx, const char* token);
 bool is_valid_token(const char* token,size_t *token_length);
 void le_set_debug_logs(bool verbose);
+
 
 #endif

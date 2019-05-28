@@ -20,8 +20,11 @@
 
 @interface LELog : NSObject
 
-+ (LELog*)sharedInstance;
+@property (atomic) struct le_context ctx;
 
++ (LELog*)sharedInstance;
++ (void)initializeSharedInstance:(char*)token;
+- (id)initWithToken:(char*)token;
 + (LELog*)sessionWithToken:(NSString*)token;
 /*
  Display all messages on TTY for debug purposes

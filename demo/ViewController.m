@@ -46,7 +46,6 @@
     [super viewDidLoad];
     LELog* log = [LELog sharedInstance];
     log.debugLogs = YES;
-    log.token = @"f66815d1-702c-414b-8dcc-bb73de372584";
     log.logApplicationLifecycleNotifications = YES;
     
 
@@ -69,7 +68,8 @@
 /*
     [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(logManyFired:) userInfo:nil repeats:YES];
 */
-    
+    LELog* log2 = [[LELog alloc] initWithToken:"55474f64-14f9-404e-830e-4bc5a4283edb"];
+    [log2 log:@"test 2B"];
 }
 
 - (void)didReceiveMemoryWarning

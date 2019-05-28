@@ -44,24 +44,24 @@
     return [[self filename:orderNumber] stringByAppendingString:MARK_EXTENSION];
 }
 
-+ (NSString*)logPath:(NSInteger)orderNumber
++ (NSString*)logPath:(NSInteger)orderNumber withDirectory:(NSString*)directory
 {
-    return [[LogFiles logsDirectory] stringByAppendingFormat:@"/%@", [self logFilename:orderNumber]];
+    return [directory stringByAppendingFormat:@"/%@", [self logFilename:orderNumber]];
 }
 
 - (NSString*)logPath
 {
-    return [[self class] logPath:self.orderNumber];
+    return [[self class] logPath:self.orderNumber withDirectory:self.directory];
 }
 
-+ (NSString*)markPath:(NSInteger)orderNumber
++ (NSString*)markPath:(NSInteger)orderNumber withDirectory:(NSString*)directory
 {
-    return [[LogFiles logsDirectory] stringByAppendingFormat:@"/%@", [self markFilename:orderNumber]];
+    return [directory stringByAppendingFormat:@"/%@", [self markFilename:orderNumber]];
 }
 
 - (NSString*)markPath
 {
-    return [[self class] markPath:self.orderNumber];
+    return [[self class] markPath:self.orderNumber withDirectory:self.directory];
 }
 
 - (BOOL)remove
@@ -92,10 +92,10 @@
 
 - (void)changeOrderNumber:(NSInteger)newOrderNumber
 {
-    NSString* oldLogPath = [[self class] logPath:self.orderNumber];
-    NSString* oldMarkPath = [[self class] markPath:self.orderNumber];
-    NSString* newLogPath = [[self class] logPath:newOrderNumber];
-    NSString* newMarkPath = [[self class] markPath:newOrderNumber];
+    NSString* oldLogPath = [[self class] logPath:self.orderNumber withDirectory:self.directory];
+    NSString* oldMarkPath = [[self class] markPath:self.orderNumber withDirectory:self.directory];
+    NSString* newLogPath = [[self class] logPath:newOrderNumber withDirectory:self.directory];
+    NSString* newMarkPath = [[self class] markPath:newOrderNumber withDirectory:self.directory];
     
     NSFileManager* fileManager = [NSFileManager defaultManager];
 
@@ -169,11 +169,12 @@
     self.bytesProcessed = [mark integerValue];
 }
 
-- (id)initWithNumber:(NSInteger)number
+- (id)initWithNumber:(NSInteger)number withDirectory:(NSString*)directory
 {
     self = [self init];
     if (!self) return nil;
 
+    self.directory = directory;
     self.orderNumber = number;
     [self loadMark];
  

@@ -10,14 +10,15 @@
 
 #import "AppDelegate.h"
 #import "lecore.h"
+#import "LELog.h"
 
 int main(int argc, char * argv[])
 {
     @autoreleasepool {
-        le_init();
-        le_handle_crashes();
-        le_set_token("602c8391-2af5-47a1-8c8e-4c002e0eef3d"); // FIXME Replace with your token
-        le_log("Hello World");
+        [LELog initializeSharedInstance:"883aa827-4ec5-4354-81a2-5b0d6c9fb81d"];
+        struct le_context ctx = [LELog sharedInstance].ctx;
+        le_handle_crashes(&ctx);
+        le_log(&ctx, "Hello World");
         return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
     }
 }

@@ -14,7 +14,7 @@
  to the server. You should not use this class directly.
  */
 @interface LEBackgroundThread : NSThread
-
+@property (nonatomic, copy) NSString* token;
 /*
  Initialization lock used to wait for background thread.
  */

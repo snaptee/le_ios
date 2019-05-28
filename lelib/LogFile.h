@@ -12,8 +12,9 @@
 
 @interface LogFile : NSObject
 
-- (id)initWithNumber:(NSInteger)number;
+- (id)initWithNumber:(NSInteger)number withDirectory:(NSString*)directory;
 
+@property (nonatomic, copy) NSString* directory;
 @property (nonatomic, assign) NSInteger orderNumber;
 @property (nonatomic, assign) NSInteger bytesProcessed;
 

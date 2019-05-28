@@ -28,9 +28,9 @@
     return [cachesDirectory path];
 }
 
-+ (NSString*)logsDirectory
++ (NSString*)logsDirectory:(NSString*)token
 {
-    return [[self cachesDirectory] stringByAppendingFormat:@"/%@", CACHES_DIRECTORY_BASENAME];
+    return [[LogFiles cachesDirectory] stringByAppendingFormat:@"/%@/%@", CACHES_DIRECTORY_BASENAME, token];
 }
 
 - (LogFile*)fileToWrite
@@ -60,7 +60,7 @@
 {
     NSFileManager* fileManager = [NSFileManager defaultManager];
     NSError* error = nil;
-    NSArray* contents = [fileManager contentsOfDirectoryAtPath:[[self class] logsDirectory] error:&error];
+    NSArray* contents = [fileManager contentsOfDirectoryAtPath:self.directory error:&error];
     if (!contents) {
         LE_DEBUG(@"Can't get contents of logs directory.");
         return;
@@ -73,7 +73,7 @@
         if (!logFile) {
             
             NSError* local_error = nil;
-            NSString* path = [[[self class] logsDirectory] stringByAppendingFormat:@"/%@", filename];
+            NSString* path = [self.directory stringByAppendingFormat:@"/%@", filename];
             BOOL r = [fileManager removeItemAtPath:path error:&local_error];
             if (!r) {
                 LE_DEBUG(@"Can't remove file '%@' with error %@.", filename, local_error);
@@ -87,8 +87,7 @@
     // if there are no files yet add one
     LogFile* lastLog = [self.logFiles lastObject];
     if (!lastLog) {
-        
-        LogFile* logFile = [LogFile new];
+        LogFile* logFile = [[LogFile alloc] initWithNumber:1 withDirectory:self.directory];
         logFile.orderNumber = 1;
         [self.logFiles addObject:logFile];
         return;
@@ -125,7 +124,7 @@
 {
     NSFileManager* fileManager = [NSFileManager defaultManager];
     NSError* error = nil;
-    BOOL created = [fileManager createDirectoryAtPath:path withIntermediateDirectories:NO attributes:nil error:&error];
+    BOOL created = [fileManager createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:&error];
     
     if (!created) {
         LE_DEBUG(@"Can't create logentries directory '%@' with error %@", path, error);
@@ -136,7 +135,7 @@
 // if the directory does not exists, create it
 - (BOOL)checkLogsDirectory
 {
-    NSString* logsDirectoryPath = [[self class] logsDirectory];
+    NSString* logsDirectoryPath =self.directory;
     NSFileManager* fileManager = [NSFileManager defaultManager];
     BOOL isDirectory = NO;
     if (![fileManager fileExistsAtPath:logsDirectoryPath isDirectory:&isDirectory]) {
@@ -152,16 +151,17 @@
     }
 }
 
-- (id)init
+- (id)initWithToken:(NSString*)token
 {
     self = [super init];
     if (!self) return nil;
+    self.directory = [LogFiles logsDirectory:token];
     
     if (![self checkLogsDirectory]) return nil;
     
     NSFileManager* fileManager = [NSFileManager defaultManager];
     NSError* error = nil;
-    NSArray* contents = [fileManager contentsOfDirectoryAtPath:[[self class] logsDirectory] error:&error];
+    NSArray* contents = [fileManager contentsOfDirectoryAtPath:self.directory error:&error];
     if (!contents) {
         LE_DEBUG(@"Can't get contents of logs directory.");
         return nil;
@@ -172,7 +172,7 @@
     for (NSString* filename in contents) {
         NSInteger number = [LogFile logFileNumber:filename];
         if (number < 0) continue; // you are not my type
-        LogFile* logFile = [[LogFile alloc] initWithNumber:number];
+        LogFile* logFile = [[LogFile alloc] initWithNumber:number withDirectory:self.directory];
         [self.logFiles addObject:logFile];
     }
     
