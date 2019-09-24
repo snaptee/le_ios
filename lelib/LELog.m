@@ -10,16 +10,16 @@
 
 #import "LELog.h"
 #import "LEBackgroundThread.h"
-#import "LogFiles.h"
 #import "lelib.h"
 
+LELog* sharedInstance;
 
 @implementation LELog
 
-- (id)initWithToken:(char*)token
+- (instancetype)initWithToken:(NSString*)token
 {
     self = [super init];
-    _ctx.token = token;
+    _ctx.token = (char*)[token cStringUsingEncoding:NSUTF8StringEncoding];
     if (le_init(&_ctx)) return nil;
     
     NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
@@ -54,7 +54,6 @@
     LE_DEBUG(@"%@", text);
     
     le_write_string(&_ctx, text);
-    le_poke(&_ctx);
 }
 
 + (void)log:(NSObject *)object{
@@ -62,11 +61,10 @@
     [[self sharedInstance] log:object];
 }
 
-static LELog* sharedInstance;
-
-+ (void)initializeSharedInstance:(char*)token
++ (LELog*)sharedInstanceWithToken:(NSString*)token
 {
-  sharedInstance = [[LELog alloc] initWithToken:token];
+    sharedInstance = [[LELog alloc] initWithToken:token];
+    return sharedInstance;
 }
 
 + (LELog*)sharedInstance
@@ -84,9 +82,14 @@ static LELog* sharedInstance;
     le_set_token(&_ctx, [token cStringUsingEncoding:NSUTF8StringEncoding]);
 }
 
-- (void)setDebugLogs:(BOOL)debugLogs
++ (void)setDebugLogs:(BOOL)debugLogs
 {
     le_set_debug_logs(debugLogs);
+}
+
+- (void)setDebugLogs:(BOOL)debugLogs
+{
+    [[self class] setDebugLogs:debugLogs];
 }
 
 - (NSString*)token

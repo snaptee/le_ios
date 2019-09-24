@@ -28,9 +28,9 @@
     return [cachesDirectory path];
 }
 
-+ (NSString*)logsDirectory:(NSString*)token
++ (NSString*)logsDirectoryWithToken:(NSString*)token
 {
-    return [[LogFiles cachesDirectory] stringByAppendingFormat:@"/%@/%@", CACHES_DIRECTORY_BASENAME, token];
+    return [[[self cachesDirectory] stringByAppendingPathComponent:CACHES_DIRECTORY_BASENAME] stringByAppendingPathComponent:token];
 }
 
 - (LogFile*)fileToWrite
@@ -73,7 +73,7 @@
         if (!logFile) {
             
             NSError* local_error = nil;
-            NSString* path = [self.directory stringByAppendingFormat:@"/%@", filename];
+            NSString* path = [self.directory stringByAppendingPathComponent:filename];
             BOOL r = [fileManager removeItemAtPath:path error:&local_error];
             if (!r) {
                 LE_DEBUG(@"Can't remove file '%@' with error %@.", filename, local_error);
@@ -151,11 +151,11 @@
     }
 }
 
-- (id)initWithToken:(NSString*)token
+- (instancetype)initWithToken:(NSString*)token
 {
     self = [super init];
     if (!self) return nil;
-    self.directory = [LogFiles logsDirectory:token];
+    self.directory = [LogFiles logsDirectoryWithToken:token];
     
     if (![self checkLogsDirectory]) return nil;
     

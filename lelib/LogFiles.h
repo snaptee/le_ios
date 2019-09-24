@@ -16,7 +16,7 @@
 
 @property (nonatomic, strong) NSString* directory;
 
-+ (NSString*)logsDirectory:(NSString*)token;
++ (NSString*)logsDirectoryWithToken:(NSString*)token;
 /*
  Check all files, remove files which are obsolete and rename valid files.
  */
@@ -27,5 +27,5 @@
 
 - (LogFile*)fileWithNumber:(NSInteger)number;
 
-- (id)initWithToken:(NSString*)token;
+- (instancetype)initWithToken:(NSString*)token;
 @end

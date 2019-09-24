@@ -10,7 +10,7 @@
 #import "lelib.h"
 
 @interface ViewController ()
-
+@property (nonatomic) LELog *secondLog;
 @end
 
 @implementation ViewController
@@ -44,11 +44,6 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    LELog* log = [LELog sharedInstance];
-    log.debugLogs = YES;
-    log.logApplicationLifecycleNotifications = YES;
-    
-
 /*
     // test exception logging handler
     NSArray* x = [NSArray arrayWithObject:nil];
@@ -68,8 +63,8 @@
 /*
     [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(logManyFired:) userInfo:nil repeats:YES];
 */
-    LELog* log2 = [[LELog alloc] initWithToken:"55474f64-14f9-404e-830e-4bc5a4283edb"];
-    [log2 log:@"test 2B"];
+    self.secondLog = [[LELog alloc] initWithToken:@"second-log"];
+    [self.secondLog log:@"test 2B"];
 }
 
 - (void)didReceiveMemoryWarning

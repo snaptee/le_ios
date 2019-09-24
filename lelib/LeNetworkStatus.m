@@ -45,7 +45,7 @@ static void ReachabilityCallback(SCNetworkReachabilityRef target __attribute__((
     SCNetworkReachabilityUnscheduleFromRunLoop(reachabilityRef, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
 }
 
-- (id)init
+- (instancetype)init
 {
     self = [super init];
     if (!self) return nil;

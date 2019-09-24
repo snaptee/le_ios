@@ -343,7 +343,7 @@
     if (self.inputFile) return YES;
     
     LE_DEBUG(@"Opening input file");
-    LogFiles* logFiles = [[LogFiles alloc]initWithToken:self.token];
+    LogFiles* logFiles = [[LogFiles alloc] initWithToken:self.token];
     
     LogFile* logFile = [logFiles fileToRead];
     BOOL opened = [self openLogFile:logFile];

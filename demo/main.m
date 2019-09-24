@@ -15,7 +15,7 @@
 int main(int argc, char * argv[])
 {
     @autoreleasepool {
-        [LELog initializeSharedInstance:"883aa827-4ec5-4354-81a2-5b0d6c9fb81d"];
+        [LELog sharedInstanceWithToken:@"primary-log"];
         struct le_context ctx = [LELog sharedInstance].ctx;
         le_handle_crashes(&ctx);
         le_log(&ctx, "Hello World");

@@ -7,7 +7,6 @@
 //
 
 #import "LogFile.h"
-#import "LogFiles.h"
 #import "lelib.h"
 
 #define NAME_NUMBER_LENGTH          10
@@ -169,7 +168,7 @@
     self.bytesProcessed = [mark integerValue];
 }
 
-- (id)initWithNumber:(NSInteger)number withDirectory:(NSString*)directory
+- (instancetype)initWithNumber:(NSInteger)number withDirectory:(NSString*)directory
 {
     self = [self init];
     if (!self) return nil;

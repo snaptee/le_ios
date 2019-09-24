@@ -88,15 +88,13 @@ static void le_exception_handler(NSException *exception)
 
 int le_init(struct le_context *ctx)
 {
-    __block int r = 0;
-
     // pesimistic strategy
-    r = 1;
+    int r = 1;
 
     ctx->le_write_queue = dispatch_queue_create("com.logentries.write", NULL);
 
     NSString* token = [NSString stringWithUTF8String:ctx->token];
-    LogFiles* logFiles = [[LogFiles alloc]initWithToken:token];
+    LogFiles* logFiles = [[LogFiles alloc] initWithToken:token];
     if (!logFiles) {
         LE_DEBUG(@"Error initializing logs directory.");
         return r;
@@ -145,7 +143,7 @@ static void write_buffer(struct le_context *ctx, size_t used_length)
         
         close(ctx->logfile_descriptor);
         ctx->file_order_number++;
-        NSString* directory = [LogFiles logsDirectory: [NSString stringWithCString:ctx->token encoding:NSASCIIStringEncoding]];
+        NSString* directory = [LogFiles logsDirectoryWithToken: [NSString stringWithCString:ctx->token encoding:NSASCIIStringEncoding]];
         LogFile* logFile = [[LogFile alloc] initWithNumber:ctx->file_order_number withDirectory:directory];
         NSString* p = [logFile logPath];
         const char* path = [p cStringUsingEncoding:NSASCIIStringEncoding];
@@ -222,6 +220,7 @@ void le_write_string(struct le_context *ctx, NSString* string)
         NSUInteger totalLength = token_length + 1 + usedLength;
         ctx->buffer[totalLength++] = '\n';
         write_buffer(ctx, (size_t)totalLength);
+        le_poke(ctx);
     });
 }
 

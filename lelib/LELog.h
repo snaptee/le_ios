@@ -23,9 +23,11 @@
 @property (atomic) struct le_context ctx;
 
 + (LELog*)sharedInstance;
-+ (void)initializeSharedInstance:(char*)token;
-- (id)initWithToken:(char*)token;
++ (LELog*)sharedInstanceWithToken:(NSString*)token;
+- (instancetype)initWithToken:(NSString*)token;
 + (LELog*)sessionWithToken:(NSString*)token;
+
++ (void)setDebugLogs:(BOOL)debugLogs;
 /*
  Display all messages on TTY for debug purposes
  */

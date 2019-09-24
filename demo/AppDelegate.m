@@ -7,12 +7,17 @@
 //
 
 #import "AppDelegate.h"
+#import "LELog.h"
 
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
     // Override point for customization after application launch.
+    [LELog setDebugLogs:YES];
+    LELog* log = [LELog sharedInstance];
+    log.logApplicationLifecycleNotifications = YES;
+
     return YES;
 }
 							
